@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Melhora a Tua Letra ✍️</title>
+    <style>
+        :root {
+            --primary: #1d3557;
+            --accent-blue: #4a90e2;
+            --accent-green: #2ec4b6;
+            --accent-orange: #ff9f1c;
+            --bg-gray: #f8f9fa;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            margin: 0; padding: 16px;
+            background-color: var(--bg-gray); color: var(--primary);
+            user-select: none;
+        }
+        .header-bar {
+            display: flex; justify-content: space-between;
+            background: white; padding: 12px 20px;
+            border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            font-weight: bold; margin-bottom: 20px;
+        }
+        .streak { color: var(--accent-orange); }
+        .gems { color: var(--accent-blue); }
+        h1 { text-align: center; font-size: 24px; margin-bottom: 20px; }
+        .screen { display: none; }
+        .screen.active { display: block; }
+        .menu-btn {
+            display: block; width: 100%; padding: 16px; margin-bottom: 16px;
+            border: none; border-radius: 12px; font-size: 18px;
+            font-weight: bold; cursor: pointer; box-sizing: border-box; text-align: center;
+        }
+        .btn-blue { background: rgba(74, 144, 226, 0.15); color: var(--accent-blue); }
+        .btn-green { background: rgba(46, 196, 182, 0.15); color: var(--accent-green); }
+        .btn-orange { background: var(--accent-orange); color: white; margin-top: 10px; }
+        .btn-back { background: #6c757d; color: white; }
+        .ia-box {
+            background: white; padding: 12px; border-radius: 12px;
+            text-align: center; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+        #canvas-container {
+            position: relative; width: 100%; height: 320px;
+            background: white; border-radius: 20px; box-shadow: inset 0 0 10px rgba(0,0,0,0.05); overflow: hidden;
+        }
+        #guide-letter {
+            position: absolute; width: 100%; text-align: center;
+            font-size: 220px; line-height: 320px; color: #e0e0e0; font-family: 'Georgia', serif; pointer-events: none;
+        }
+        canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; touch-action: none; }
+        .nav-controls { display: flex; justify-content: space-between; margin: 15px 0; }
+        .nav-btn { padding: 10px 20px; border-radius: 8px; border: none; background: #e9ecef; font-weight: bold; cursor: pointer; }
+        @media print {
+            body * { display: none !important; }
+            #print-zone, #print-zone * { display: block !important; }
+            #print-zone { width: 100%; height: 100%; background: white; }
+            .print-line {
+                border-top: 1px dotted #4a90e2; border-bottom: 2px solid #1d3557;
+                height: 45px; margin-top: 40px; font-size: 32px;
+                color: rgba(0,0,0,0.15); font-family: serif; padding-left: 20px; letter-spacing: 40px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header-bar">
+        <span class="streak">🔥 <span id="streak-val">3</span> DIAS</span>
+        <span class="gems">💎 <span id="gems-val">120</span></span>
+    </div>
+    <div id="screen-menu" class="screen active">
+        <h1>Melhora a Tua Letra ✍️</h1>
+        <button class="menu-btn btn-blue" onclick="changeScreen('screen-ia')">1. Treinar no Ecrã (IA)</button>
+        <button class="menu-btn btn-green" onclick="alert('Funcionalidade de misturar estilos em desenvolvimento web!')">2. Criar Letra do Zero</button>
+    </div>
+    <div id="screen-ia" class="screen">
+        <div class="nav-controls">
+            <button class="nav-btn" onclick="prevLetter()">◀ Anterior</button>
+            <h2 id="current-title" style="margin:0;">Letra: A</h2>
+            <button class="nav-btn" onclick="nextLetter()">Seguinte ▶</button>
+        </div>
+        <div class="ia-box">
+            <div id="ia-msg" style="font-weight:bold; color:var(--accent-blue);">Copia a letra guia!</div>
+            <div id="ia-score">Precisão: 0%</div>
+        </div>
+        <div id="canvas-container">
+            <div id="guide-letter">A</div>
+            <canvas id="paintCanvas"></canvas>
+        </div>
+        <button class="menu-btn btn-orange" onclick="printSheet()">Imprimir Pauta Escolar</button>
+        <button class="menu-btn" style="background:#e63946; color:white;" onclick="clearCanvas()">Limpar Linhas</button>
+        <button class="menu-btn btn-back" onclick="changeScreen('screen-menu')">Voltar ao Menu</button>
+    </div>
+    <div id="print-zone" style="display:none;"></div>
+    <script>
+        const letters = ["A", "B", "C", "D", "E"];
+        let currentIndex = 0; let totalGems = 120; let points = [];
+        const canvas = document.getElementById('paintCanvas');
+        const ctx = canvas.getContext('2d');
+        let drawing = false;
+
+        function changeScreen(screenId) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById(screenId).classList.add('active');
+            if(screenId === 'screen-ia') { setTimeout(resizeCanvas, 100); }
+        }
+        function resizeCanvas() {
+            canvas.width = canvas.parentElement.clientWidth;
+            canvas.height = canvas.parentElement.clientHeight;
+            ctx.lineWidth = 6; ctx.lineCap = 'round'; ctx.strokeStyle = '#4a90e2';
+        }
+        function startDraw(e) {
+            drawing = true; points = []; ctx.beginPath();
+            const pos = getPos(e); ctx.moveTo(pos.x, pos.y); points.push(pos);
+        }
+        function draw(e) {
+            if (!drawing) return;
+            const pos = getPos(e); ctx.lineTo(pos.x, pos.y); ctx.stroke(); points.push(pos);
+            const center = { x: canvas.width / 2, y: canvas.height / 2 };
+            const dist = Math.sqrt(Math.pow(pos.x - center.x, 2) + Math.pow(pos.y - center.y, 2));
+            ctx.strokeStyle = dist > 110 ? '#e63946' : '#4a90e2';
+        }
+        function endDraw() { if (!drawing) return; drawing = false; evaluateTrace(); }
+        function getPos(e) {
+            const rect = canvas.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            return { x: clientX - rect.left, y: clientY - rect.top };
+        }
+        canvas.addEventListener('mousedown', startDraw);
+        canvas.addEventListener('mousemove', draw);
+        canvas.addEventListener('mouseup', endDraw);
+        canvas.addEventListener('touchstart', startDraw);
+        canvas.addEventListener('touchmove', draw);
+        canvas.addEventListener('touchend', endDraw);
+
+        function clearCanvas() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            document.getElementById('ia-msg').innerText = "Copia a letra guia!";
+            document.getElementById('ia-msg').style.color = "var(--accent-blue)";
+            document.getElementById('ia-score').innerText = "Precisão: 0%";
+        }
+        function evaluateTrace() {
+            if (points.length < 6) { document.getElementById('ia-msg').innerText = "Desenho muito curto!"; return; }
+            const center = { x: canvas.width / 2, y: canvas.height / 2 };
+            let errors = 0;
+            points.forEach(p => {
+                const dist = Math.sqrt(Math.pow(p.x - center.x, 2) + Math.pow(p.y - center.y, 2));
+                if (dist > 110) errors++;
+            });
+            let precision = Math.round((1 - (errors / points.length)) * 100);
+            document.getElementById('ia-score').innerText = `Precisão: ${precision}%`;
+            if (precision >= 75) {
+                document.getElementById('ia-msg').innerText = "Incrível! +10 Cristais 💎";
+                document.getElementById('ia-msg').style.color = "var(--accent-green)";
+                totalGems += 10; document.getElementById('gems-val').innerText = totalGems;
+            } else {
+                document.getElementById('ia-msg').innerText = "Tenta alinhar mais com a guia!";
+                document.getElementById('ia-msg').style.color = "var(--accent-orange)";
+            }
+        }
+        function updateLetter() {
+            const current = letters[currentIndex];
+            document.getElementById('current-title').innerText = `Letra: ${current}`;
+            document.getElementById('guide-letter').innerText = current;
+            clearCanvas();
+        }
+        function nextLetter() { if(currentIndex < letters.length - 1) { currentIndex++; updateLetter(); } }
+        function prevLetter() { if(currentIndex > 0) { currentIndex--; updateLetter(); } }
+        function printSheet() {
+            const current = letters[currentIndex];
+            const zone = document.getElementById('print-zone');
+            zone.innerHTML = `<h2>CADERNO DE CALIGRAFIA - TREINO DA LETRA ${current}</h2>`;
+            for(let i=0; i<12; i++) { zone.innerHTML += `<div class="print-line">${current} ${current} ${current} ${current}</div>`; }
+            window.print();
+        }
+    </script>
+</body>
+</html>
